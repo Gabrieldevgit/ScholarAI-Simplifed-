@@ -1,0 +1,1919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ScholarAI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Crimson+Pro:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Crimson Pro', 'Georgia', serif;
+      background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+      color: #e8dcc4;
+    }
+
+    /* ── Layout ── */
+    .scholarai-container { display: flex; height: 100vh; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 280px;
+      background: linear-gradient(180deg, #1a2634 0%, #0d1620 100%);
+      border-right: 1px solid rgba(232,220,196,.1);
+      display: flex; flex-direction: column;
+      transition: width .3s ease;
+      box-shadow: 4px 0 20px rgba(0,0,0,.3);
+    }
+    .sidebar.closed { width: 56px; }
+    .sidebar.closed .sidebar-body { display: none; }
+    .sidebar.closed .sidebar-logo { display: none; }
+    .sidebar.closed .sidebar-header { justify-content: center; padding: 16px 0; }
+    .sidebar.closed .sidebar-toggle { margin: 0; }
+
+    .sidebar-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px; border-bottom: 1px solid rgba(232,220,196,.1);
+    }
+    .sidebar-logo {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 20px; font-weight: 700; color: #f4a460;
+      font-family: 'Playfair Display', serif; white-space: nowrap;
+    }
+    .sidebar-toggle {
+      background: none; border: none; color: #e8dcc4;
+      cursor: pointer; padding: 8px; border-radius: 6px; transition: all .2s; flex-shrink: 0;
+    }
+    .sidebar-toggle:hover { background: rgba(244,164,96,.1); }
+
+    .new-chat-btn {
+      margin: 16px; padding: 12px 16px;
+      background: linear-gradient(135deg, #f4a460 0%, #d4843e 100%);
+      border: none; border-radius: 10px; color: #0d1620; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 8px;
+      transition: all .2s; box-shadow: 0 4px 12px rgba(244,164,96,.2);
+    }
+    .new-chat-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(244,164,96,.3); }
+
+    .chat-history { flex: 1; overflow-y: auto; padding: 16px; }
+    .chat-history h3 {
+      font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+      color: rgba(232,220,196,.5); margin-bottom: 12px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .chat-item {
+      padding: 10px 12px; margin-bottom: 6px; border-radius: 8px;
+      cursor: pointer; transition: all .2s;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .chat-item:hover { background: rgba(244,164,96,.05); }
+    .chat-item.active { background: rgba(244,164,96,.15); border-left: 3px solid #f4a460; }
+    .chat-item-content { display: flex; align-items: center; gap: 8px; flex: 1; overflow: hidden; }
+    .chat-item-content span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+    .delete-chat-btn {
+      background: none; border: none; color: rgba(232,220,196,.5);
+      cursor: pointer; padding: 4px; border-radius: 4px; opacity: 0; transition: all .2s;
+    }
+    .chat-item:hover .delete-chat-btn { opacity: 1; }
+    .delete-chat-btn:hover { color: #f4a460; background: rgba(244,164,96,.1); }
+
+    .sidebar-footer { padding: 16px; border-top: 1px solid rgba(232,220,196,.1); }
+    .user-info { display: flex; align-items: center; gap: 12px; }
+    .user-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background-size: cover; background-position: center;
+      border: 2px solid #f4a460; flex-shrink: 0;
+    }
+    .user-details { flex: 1; overflow: hidden; }
+    .user-name { display: block; font-weight: 600; font-size: 14px; }
+    .user-email { display: block; font-size: 12px; color: rgba(232,220,196,.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .logout-btn { background: none; border: none; color: rgba(232,220,196,.6); cursor: pointer; padding: 8px; border-radius: 6px; transition: all .2s; }
+    .logout-btn:hover { background: rgba(244,164,96,.1); color: #f4a460; }
+
+    /* ── Main Content ── */
+    .main-content { flex: 1; display: flex; flex-direction: column; background: #0d1620; min-width: 0; }
+
+    .top-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px; border-bottom: 1px solid rgba(232,220,196,.1);
+      background: linear-gradient(90deg, rgba(26,38,52,.8) 0%, rgba(13,22,32,.8) 100%);
+      backdrop-filter: blur(10px); gap: 12px;
+    }
+    .top-bar-left { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .top-bar-right { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+    .dropdown { position: relative; }
+    .dropdown-btn {
+      padding: 10px 16px;
+      background: rgba(244,164,96,.1); border: 1px solid rgba(244,164,96,.2);
+      border-radius: 8px; color: #e8dcc4; cursor: pointer;
+      display: flex; align-items: center; gap: 8px; font-size: 14px; transition: all .2s;
+    }
+    .dropdown-btn:hover { background: rgba(244,164,96,.15); border-color: rgba(244,164,96,.3); }
+    .dropdown-menu {
+      position: absolute; top: calc(100% + 8px); left: 0;
+      background: #1a2634; border: 1px solid rgba(232,220,196,.1);
+      border-radius: 10px; padding: 8px; min-width: 260px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.3); z-index: 1000;
+      animation: fadeIn .2s; display: none;
+    }
+    .dropdown-menu.visible { display: block; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .dropdown-item {
+      width: 100%; padding: 12px; background: none; border: none;
+      border-radius: 6px; color: #e8dcc4; text-align: left; cursor: pointer; transition: all .2s;
+    }
+    .dropdown-item:hover { background: rgba(244,164,96,.1); }
+    .dropdown-item.active { background: rgba(244,164,96,.2); }
+    .dropdown-item-title { font-weight: 600; margin-bottom: 2px; }
+    .dropdown-item-desc { font-size: 12px; color: rgba(232,220,196,.6); }
+
+    .notepad-btn {
+      padding: 10px 16px; background: rgba(244,164,96,.1); border: 1px solid rgba(244,164,96,.2);
+      border-radius: 8px; color: #e8dcc4; cursor: pointer;
+      display: flex; align-items: center; gap: 8px; font-size: 14px; transition: all .2s;
+    }
+    .notepad-btn:hover { background: rgba(244,164,96,.15); }
+
+    /* Provider badge */
+    .provider-badge {
+      padding: 6px 12px; background: rgba(80,200,120,.1); border: 1px solid rgba(80,200,120,.3);
+      border-radius: 20px; font-size: 12px; color: #50c878;
+      display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    }
+    .provider-dot { width: 7px; height: 7px; background: #50c878; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
+
+    /* ── Messages ── */
+    .messages-area { flex: 1; overflow-y: auto; padding: 24px; }
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%; text-align: center; color: rgba(232,220,196,.8);
+    }
+    .empty-state svg { margin-bottom: 24px; color: #f4a460; opacity: .6; }
+    .empty-state h2 { font-size: 32px; font-family: 'Playfair Display', serif; margin-bottom: 8px; }
+    .empty-state p { font-size: 16px; margin-bottom: 24px; color: rgba(232,220,196,.6); }
+    .suggestion-chips { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .suggestion-chips button {
+      padding: 10px 20px; background: rgba(244,164,96,.1); border: 1px solid rgba(244,164,96,.2);
+      border-radius: 20px; color: #e8dcc4; cursor: pointer; transition: all .2s; font-size: 14px;
+    }
+    .suggestion-chips button:hover { background: rgba(244,164,96,.2); transform: translateY(-2px); }
+
+    .messages-list { max-width: 900px; margin: 0 auto; }
+    .message-wrapper { display: flex; gap: 16px; margin-bottom: 24px; animation: slideUp .3s ease; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .message-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .user-message .message-avatar { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .assistant-message .message-avatar { background: linear-gradient(135deg, #f4a460 0%, #d4843e 100%); }
+    .message-content { flex: 1; font-size: 15px; line-height: 1.7; }
+    .message-content p { margin-bottom: 12px; white-space: pre-wrap; }
+
+    /* ── Code blocks ── */
+    .code-block { background: #0d1117; border: 1px solid rgba(232,220,196,.1); border-radius: 10px; margin: 14px 0; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+    .code-header { padding: 9px 16px; background: #161b22; border-bottom: 1px solid rgba(255,255,255,.07); display: flex; align-items: center; gap: 8px; font-size: 12px; color: #8b949e; }
+    .code-block pre { padding: 18px 20px; overflow-x: auto; margin: 0; background: #0d1117; }
+    .code-block code { font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 13px; line-height: 1.7; color: #e6edf3; }
+
+    /* Syntax highlight tokens */
+    .tok-kw   { color: #ff7b72; }          /* keywords: if, for, return, def, class … */
+    .tok-fn   { color: #d2a8ff; }          /* function/method names */
+    .tok-str  { color: #a5d6ff; }          /* strings & template literals */
+    .tok-num  { color: #79c0ff; }          /* numbers */
+    .tok-cmt  { color: #8b949e; font-style: italic; } /* comments */
+    .tok-op   { color: #ff7b72; }          /* operators: = + - * / => */
+    .tok-cls  { color: #ffa657; }          /* class names / types */
+    .tok-var  { color: #e6edf3; }          /* plain identifiers */
+    .tok-attr { color: #79c0ff; }          /* object keys / HTML attributes */
+    .tok-bool { color: #ff7b72; }          /* true / false / null / None */
+    .tok-pun  { color: #c9d1d9; }          /* punctuation: {} () [] , ; */
+    .tok-tag  { color: #7ee787; }          /* HTML/XML tags */
+    .tok-sel  { color: #ffa657; }          /* CSS selectors */
+    .tok-prop { color: #79c0ff; }          /* CSS properties */
+    .tok-val  { color: #a5d6ff; }          /* CSS values */
+
+    /* ── Inline markdown rendered inside messages ── */
+    .msg-bold   { font-weight: 700; color: #ffd89b; }
+    .msg-italic { font-style: italic; color: #d4c5a9; }
+    .msg-code   { background: rgba(244,164,96,.15); border: 1px solid rgba(244,164,96,.25); border-radius: 4px; padding: 1px 6px; font-family: 'JetBrains Mono','Fira Code',monospace; font-size: 13px; color: #f4a460; }
+    .msg-hr     { border: none; border-top: 1px solid rgba(232,220,196,.2); margin: 14px 0; }
+
+    /* ── File attachment chips ── */
+    .file-attach-area {
+      display: none; flex-wrap: wrap; gap: 8px;
+      padding: 8px 14px 0 14px;
+    }
+    .file-attach-area.visible { display: flex; }
+
+    /* Image thumbnail chip */
+    .img-chip {
+      position: relative; width: 64px; height: 64px; border-radius: 8px; overflow: hidden;
+      border: 2px solid rgba(244,164,96,.3); flex-shrink: 0; cursor: default;
+    }
+    .img-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .img-chip-remove {
+      position: absolute; top: 2px; right: 2px; width: 18px; height: 18px;
+      background: rgba(0,0,0,.7); border: none; border-radius: 50%; color: #fff;
+      font-size: 12px; line-height: 1; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; padding: 0;
+    }
+    .img-chip-remove:hover { background: rgba(220,50,50,.85); }
+
+    /* Text file chip */
+    .file-chip {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(244,164,96,.1); border: 1px solid rgba(244,164,96,.25);
+      border-radius: 20px; padding: 4px 10px 4px 12px;
+      font-size: 12px; color: #f4a460; font-family: 'Crimson Pro',Georgia,serif;
+      max-width: 240px; flex-shrink: 0;
+    }
+    .file-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-chip-size { color: rgba(244,164,96,.5); font-size: 11px; flex-shrink:0; }
+    .file-chip-remove {
+      background: none; border: none; color: rgba(244,164,96,.5);
+      cursor: pointer; padding: 0 2px; line-height:1; font-size: 16px; transition: color .15s;
+    }
+    .file-chip-remove:hover { color: #f4a460; }
+
+    /* Images in message bubbles */
+    .msg-img-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .msg-img-grid img {
+      max-width: 220px; max-height: 220px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.1); object-fit: cover; cursor: zoom-in;
+    }
+
+    /* ── Streaming cursor ── */
+    .stream-cursor {
+      display: inline-block; width: 2px; height: 1.1em;
+      background: #f4a460; margin-left: 2px; vertical-align: text-bottom;
+      animation: blink .7s step-end infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── Typing indicator ── */
+    .typing-indicator { display: flex; gap: 6px; padding: 12px 0; }
+    .typing-indicator span { width: 8px; height: 8px; background: #f4a460; border-radius: 50%; animation: bounce 1.4s infinite; }
+    .typing-indicator span:nth-child(2) { animation-delay: .2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,60%,100%{ transform: translateY(0); } 30%{ transform: translateY(-10px); } }
+
+    /* ── Input ── */
+    .input-area {
+      padding: 24px; border-top: 1px solid rgba(232,220,196,.1);
+      background: linear-gradient(180deg, rgba(13,22,32,.8) 0%, rgba(26,38,52,.8) 100%);
+      backdrop-filter: blur(10px);
+    }
+    .input-container {
+      max-width: 900px; margin: 0 auto; display: flex; gap: 12px;
+      background: rgba(26,38,52,.6); border: 1px solid rgba(232,220,196,.1);
+      border-radius: 16px; padding: 12px;
+    }
+    .upload-btn, .send-btn {
+      background: none; border: none; color: #e8dcc4;
+      cursor: pointer; padding: 8px; border-radius: 8px; transition: all .2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .upload-btn:hover, .send-btn:hover { background: rgba(244,164,96,.1); color: #f4a460; }
+    .send-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .input-container input[type="text"] {
+      flex: 1; background: none; border: none; color: #e8dcc4;
+      font-size: 15px; outline: none; font-family: 'Crimson Pro', 'Georgia', serif;
+    }
+    .input-container input[type="text"]::placeholder { color: rgba(232,220,196,.4); }
+
+    /* ── Notepad ── */
+    .notepad-panel {
+      width: 350px; background: #1a2634;
+      border-left: 1px solid rgba(232,220,196,.1); display: flex; flex-direction: column;
+    }
+    .notepad-header {
+      padding: 20px; border-bottom: 1px solid rgba(232,220,196,.1);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .notepad-header h3 { display: flex; align-items: center; gap: 10px; font-size: 18px; color: #f4a460; }
+    .notepad-actions { display: flex; gap: 8px; align-items: center; }
+    .notepad-actions button {
+      padding: 6px 12px; background: rgba(244,164,96,.1); border: 1px solid rgba(244,164,96,.2);
+      border-radius: 6px; color: #e8dcc4; cursor: pointer; font-size: 12px; transition: all .2s;
+    }
+    .notepad-actions button:hover { background: rgba(244,164,96,.2); }
+    .notepad-panel textarea {
+      flex: 1; background: none; border: none; color: #e8dcc4;
+      padding: 20px; font-size: 14px; line-height: 1.6; resize: none; outline: none;
+      font-family: 'Crimson Pro', 'Georgia', serif;
+    }
+    .notepad-panel textarea::placeholder { color: rgba(232,220,196,.3); }
+
+    /* ── Login ── */
+    .login-container {
+      width: 100vw; height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    }
+    .login-card {
+      background: linear-gradient(180deg, #1a2634 0%, #0d1620 100%);
+      border: 1px solid rgba(232,220,196,.1);
+      border-radius: 20px; padding: 48px; max-width: 480px; width: 90%;
+      text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.4);
+    }
+    .login-header { margin-bottom: 28px; }
+    .login-icon { color: #f4a460; margin-bottom: 16px; }
+    .login-header h1 {
+      font-size: 36px; font-family: 'Playfair Display', serif; margin-bottom: 8px;
+      background: linear-gradient(135deg, #f4a460 0%, #ffd89b 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .login-header p { color: rgba(232,220,196,.7); font-size: 16px; }
+
+    /* Provider cards */
+    .provider-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .provider-card {
+      padding: 14px 12px; border-radius: 12px; cursor: pointer; transition: all .2s;
+      border: 2px solid rgba(232,220,196,.1); background: rgba(255,255,255,.03); text-align: center;
+    }
+    .provider-card:hover { border-color: rgba(244,164,96,.4); background: rgba(244,164,96,.05); }
+    .provider-card.selected { border-color: #f4a460; background: rgba(244,164,96,.12); }
+    .provider-card .p-name { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+    .provider-card .p-tag { font-size: 11px; color: rgba(232,220,196,.5); }
+    .provider-card .p-free { display: inline-block; margin-top: 6px; padding: 2px 8px; background: rgba(80,200,120,.15); border: 1px solid rgba(80,200,120,.4); border-radius: 8px; font-size: 10px; color: #50c878; }
+    .provider-card .p-cors { display: block; font-size: 10px; margin-top: 4px; color: rgba(80,200,120,.7); }
+    .provider-card .p-cors-warn { color: rgba(255,180,0,.7); }
+
+    .step-label { font-size: 13px; color: rgba(232,220,196,.5); margin-bottom: 12px; text-align: left; }
+    .api-key-row { display: flex; gap: 8px; margin-bottom: 18px; }
+    .api-key-row input {
+      flex: 1; padding: 12px 16px;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(232,220,196,.15);
+      border-radius: 10px; color: #e8dcc4; font-size: 14px; outline: none;
+      font-family: 'Crimson Pro', 'Georgia', serif; transition: border-color .2s;
+    }
+    .api-key-row input:focus { border-color: rgba(244,164,96,.5); }
+    .api-key-row input::placeholder { color: rgba(232,220,196,.3); }
+
+    .start-btn {
+      width: 100%; padding: 14px 24px;
+      background: linear-gradient(135deg, #f4a460 0%, #d4843e 100%);
+      border: none; border-radius: 10px; color: #0d1620;
+      font-weight: 700; font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: all .2s; box-shadow: 0 4px 12px rgba(244,164,96,.3);
+      font-family: 'Playfair Display', serif;
+    }
+    .start-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(244,164,96,.4); }
+
+    .login-links { margin-top: 18px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .login-links a { font-size: 12px; color: rgba(232,220,196,.5); text-decoration: none; padding: 4px 10px; border: 1px solid rgba(232,220,196,.15); border-radius: 20px; transition: all .2s; }
+    .login-links a:hover { color: #f4a460; border-color: rgba(244,164,96,.4); }
+    .login-footer { margin-top: 14px; font-size: 12px; color: rgba(232,220,196,.35); }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #3a1a1a; border: 1px solid rgba(255,100,100,.4); border-radius: 12px; padding: 14px 24px; color: #ffaaaa; font-size: 14px; z-index: 9999; display: none; box-shadow: 0 8px 24px rgba(0,0,0,.4); max-width: 90vw; text-align: center; }
+    .toast.visible { display: block; animation: fadeIn .3s; }
+
+    /* ── Backend Guide Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 5000;
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px); animation: fadeIn .2s;
+      display: none;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: linear-gradient(180deg,#1a2634 0%,#0d1620 100%);
+      border: 1px solid rgba(232,220,196,.15); border-radius: 16px;
+      width: min(860px, 94vw); max-height: 88vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 24px 60px rgba(0,0,0,.6);
+    }
+    .modal-head {
+      padding: 20px 28px; border-bottom: 1px solid rgba(232,220,196,.1);
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .modal-head h2 { font-family: 'Playfair Display',serif; font-size: 22px; color: #f4a460; }
+    .modal-close { background:none; border:none; color:rgba(232,220,196,.5); cursor:pointer; padding:6px; border-radius:6px; transition:all .2s; }
+    .modal-close:hover { background:rgba(244,164,96,.1); color:#f4a460; }
+    .modal-body { flex:1; overflow-y:auto; padding: 24px 28px; }
+    .modal-body h3 { font-family:'Playfair Display',serif; font-size:17px; color:#f4a460; margin:24px 0 10px; display:flex; align-items:center; gap:8px; }
+    .modal-body h3:first-child { margin-top:0; }
+    .modal-body p, .modal-body li { font-size:15px; line-height:1.75; color:rgba(232,220,196,.85); margin-bottom:8px; }
+    .modal-body ul { padding-left:22px; margin-bottom:12px; }
+    .modal-body code {
+      background:rgba(244,164,96,.12); border:1px solid rgba(244,164,96,.2); border-radius:4px;
+      padding:1px 7px; font-family:'JetBrains Mono','Fira Code',monospace; font-size:13px; color:#f4a460;
+    }
+    .modal-body pre {
+      background:#0d1117; border:1px solid rgba(255,255,255,.08); border-radius:8px;
+      padding:16px 18px; overflow-x:auto; margin:10px 0 16px;
+      font-family:'JetBrains Mono','Fira Code',monospace; font-size:13px; line-height:1.65; color:#e6edf3;
+    }
+    .modal-body pre .tok-kw  { color:#ff7b72; }
+    .modal-body pre .tok-str { color:#a5d6ff; }
+    .modal-body pre .tok-cmt { color:#8b949e; font-style:italic; }
+    .modal-body pre .tok-num { color:#79c0ff; }
+    .modal-body pre .tok-fn  { color:#d2a8ff; }
+    .modal-step {
+      display:flex; align-items:flex-start; gap:14px; background:rgba(244,164,96,.05);
+      border:1px solid rgba(244,164,96,.12); border-radius:10px; padding:14px 16px; margin-bottom:12px;
+    }
+    .modal-step-num {
+      min-width:28px; height:28px; background:linear-gradient(135deg,#f4a460,#d4843e);
+      border-radius:50%; display:flex; align-items:center; justify-content:center;
+      font-weight:700; font-size:13px; color:#0d1620; flex-shrink:0; margin-top:1px;
+    }
+    .guide-btn {
+      padding:10px 16px; background:rgba(244,164,96,.1); border:1px solid rgba(244,164,96,.25);
+      border-radius:8px; color:#e8dcc4; cursor:pointer; font-size:14px; transition:all .2s;
+      display:flex; align-items:center; gap:7px;
+    }
+    .guide-btn:hover { background:rgba(244,164,96,.18); }
+
+    /* ── Artifact card (inline in message) ── */
+    .artifact-card {
+      border: 1px solid rgba(80,200,120,.25);
+      border-radius: 12px; overflow: hidden;
+      margin: 14px 0; background: #0d1117;
+      box-shadow: 0 4px 20px rgba(0,0,0,.35);
+    }
+    .artifact-card-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; background: #161b22;
+      border-bottom: 1px solid rgba(80,200,120,.15);
+    }
+    .artifact-card-icon { color: #50c878; display:flex; align-items:center; }
+    .artifact-card-title { flex:1; font-size:13px; font-weight:600; color:#c9d1d9; font-family:'Crimson Pro',Georgia,serif; }
+    .artifact-card-lang  { font-size:11px; color:#8b949e; background:rgba(255,255,255,.06); padding:2px 8px; border-radius:10px; }
+    .artifact-card-preview {
+      position: relative; height: 180px; background: #fff; overflow: hidden; cursor: pointer;
+    }
+    .artifact-card-preview iframe {
+      width: 200%; height: 200%; border: none;
+      transform: scale(0.5); transform-origin: top left;
+      pointer-events: none;
+    }
+    .artifact-card-preview-overlay {
+      position: absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      background: rgba(13,17,23,.45); opacity:0; transition: opacity .2s;
+    }
+    .artifact-card-preview:hover .artifact-card-preview-overlay { opacity:1; }
+    .artifact-open-btn {
+      padding: 10px 22px; background: linear-gradient(135deg,#50c878,#3aa85f);
+      border: none; border-radius: 8px; color: #0d1620; font-weight: 700;
+      font-size: 14px; cursor: pointer; display:flex; align-items:center; gap:8px;
+      font-family:'Crimson Pro',Georgia,serif; box-shadow:0 4px 14px rgba(80,200,120,.35);
+    }
+    .artifact-card-footer {
+      display:flex; gap:8px; padding:10px 14px; background:#0d1117;
+      border-top: 1px solid rgba(255,255,255,.05);
+    }
+    .artifact-footer-btn {
+      padding: 5px 14px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 6px; color: #8b949e; cursor: pointer; font-size: 12px; transition: all .2s;
+      font-family:'Crimson Pro',Georgia,serif;
+    }
+    .artifact-footer-btn:hover { background:rgba(80,200,120,.1); border-color:rgba(80,200,120,.3); color:#50c878; }
+    .artifact-footer-btn.primary { color:#50c878; border-color:rgba(80,200,120,.3); background:rgba(80,200,120,.08); }
+    .artifact-footer-btn.primary:hover { background:rgba(80,200,120,.18); }
+
+    /* ── Artifact panel ── */
+    .artifact-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 4000;
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(3px); animation: fadeIn .2s;
+    }
+    .artifact-overlay.open { display: flex; }
+    .artifact-box {
+      background: #0d1117; border: 1px solid rgba(232,220,196,.12);
+      border-radius: 14px; width: min(980px, 96vw); height: min(700px, 90vh);
+      display: flex; flex-direction: column;
+      box-shadow: 0 24px 60px rgba(0,0,0,.7);
+      overflow: hidden;
+    }
+    .artifact-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 16px; background: #161b22;
+      border-bottom: 1px solid rgba(255,255,255,.07); flex-shrink: 0;
+    }
+    .artifact-head .a-title { flex: 1; font-size: 13px; color: #8b949e; font-family: 'JetBrains Mono','Fira Code',monospace; }
+    .artifact-tabs { display: flex; gap: 4px; }
+    .artifact-tab {
+      padding: 5px 14px; border-radius: 6px; border: 1px solid rgba(232,220,196,.1);
+      background: none; color: rgba(232,220,196,.5); cursor: pointer; font-size: 12px; transition: all .2s;
+    }
+    .artifact-tab.active { background: rgba(244,164,96,.15); border-color: rgba(244,164,96,.3); color: #f4a460; }
+    .artifact-tab:hover:not(.active) { background: rgba(255,255,255,.05); color: #e8dcc4; }
+    .artifact-close {
+      background: none; border: none; color: rgba(232,220,196,.4); cursor: pointer;
+      padding: 5px; border-radius: 6px; transition: all .2s; line-height: 1;
+    }
+    .artifact-close:hover { color: #f4a460; background: rgba(244,164,96,.1); }
+    .artifact-body { flex: 1; display: grid; overflow: hidden; }
+    .artifact-body.split { grid-template-columns: 1fr 1fr; }
+    .artifact-frame { width: 100%; height: 100%; border: none; background: #fff; }
+    .artifact-code-pane { overflow: auto; background: #0d1117; }
+    .artifact-code-pane pre { padding: 16px 20px; margin: 0; font-family: 'JetBrains Mono','Fira Code',monospace; font-size: 13px; line-height: 1.7; color: #e6edf3; }
+    .artifact-divider { width: 4px; background: rgba(255,255,255,.06); cursor: col-resize; }
+
+    /* Run button in code header */
+    .code-run-btn {
+      background: rgba(80,200,120,.12); border: 1px solid rgba(80,200,120,.3);
+      color: #50c878; cursor: pointer; padding: 2px 10px; border-radius: 4px;
+      font-size: 11px; font-family: 'Crimson Pro',Georgia,serif;
+      transition: all .2s; display: flex; align-items: center; gap: 4px; margin-left: 6px;
+    }
+    .code-run-btn:hover { background: rgba(80,200,120,.22); }
+
+    /* ── Copy button inside code blocks ── */
+    .code-copy-btn {
+      margin-left: auto; background: none; border: none;
+      color: rgba(244,164,96,.55); cursor: pointer;
+      padding: 2px 10px; border-radius: 4px; font-size: 11px;
+      font-family: 'Crimson Pro', Georgia, serif;
+      transition: all .2s; display: flex; align-items: center; gap: 4px;
+    }
+    .code-copy-btn:hover { color: #f4a460; background: rgba(244,164,96,.12); }
+    .code-copy-btn.copied { color: #50c878 !important; }
+
+    /* Per-provider key hint below input */
+    .key-hint {
+      font-size: 11px; color: rgba(232,220,196,.35);
+      margin-top: 6px; text-align: left; padding-left: 2px; min-height: 16px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(13,22,32,.5); }
+    ::-webkit-scrollbar-thumb { background: rgba(244,164,96,.3); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(244,164,96,.5); }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════ LOGIN SCREEN ════════════════════════════ -->
+<div class="login-container" id="loginScreen">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="login-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+      </div>
+      <h1>ScholarAI</h1>
+      <p>Your AI-Powered Learning Companion</p>
+    </div>
+
+    <p class="step-label">① Choose a free AI provider</p>
+    <div class="provider-grid" id="providerGrid">
+      <div class="provider-card selected" data-provider="groq">
+        <div class="p-name">⚡ Groq</div>
+        <div class="p-tag">Llama 3.3 · Mixtral</div>
+        <div class="p-free">Free tier</div>
+        <div class="p-cors">✅ Browser safe</div>
+      </div>
+      <div class="provider-card" data-provider="openrouter">
+        <div class="p-name">🌐 OpenRouter</div>
+        <div class="p-tag">100+ free models</div>
+        <div class="p-free">Free models</div>
+        <div class="p-cors">✅ Browser safe</div>
+      </div>
+      <div class="provider-card" data-provider="mistral">
+        <div class="p-name">🌪 Mistral AI</div>
+        <div class="p-tag">Mistral · Codestral</div>
+        <div class="p-free">Free tier</div>
+        <div class="p-cors">✅ Browser safe</div>
+      </div>
+      <div class="provider-card" data-provider="together">
+        <div class="p-name">🤝 Together AI</div>
+        <div class="p-tag">Llama · Qwen · Mixtral</div>
+        <div class="p-free">Free $25 credit</div>
+        <div class="p-cors p-cors-warn">⚠️ Needs HTTP server</div>
+      </div>
+      <div class="provider-card" data-provider="deepseek">
+        <div class="p-name">🐋 DeepSeek</div>
+        <div class="p-tag">DeepSeek-V3 · R1</div>
+        <div class="p-free">Very cheap</div>
+        <div class="p-cors p-cors-warn">⚠️ Needs HTTP server</div>
+      </div>
+    </div>
+
+    <!-- CORS warning shown when a non-browser-safe provider is selected -->
+    <div id="corsWarning" style="display:none;background:rgba(255,180,0,.08);border:1px solid rgba(255,180,0,.25);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:rgba(232,220,196,.85);line-height:1.6;">
+      ⚠️ <strong style="color:#ffd89b">This provider blocks requests from files opened directly in your browser.</strong><br>
+      Fix it in 10 seconds — open a terminal in the same folder as ScholarAI.html and run:<br>
+      <code id="corsFixCmd" style="display:block;margin:8px 0 4px;background:#0d1117;padding:7px 12px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#50c878;cursor:pointer;" onclick="copyCorsCmd(this)">python -m http.server 8080</code>
+      <span style="font-size:11px;color:rgba(232,220,196,.4)">Then open <strong style="color:#79c0ff">http://localhost:8080/ScholarAI.html</strong> · Click the code above to copy it</span>
+    </div>
+
+    <p class="step-label">② Paste your API key <span id="keyFormatNote" style="color:#f4a460;font-style:italic;"></span></p>
+    <div class="api-key-row">
+      <input type="password" id="apiKeyInput" placeholder="Paste your API key value here…" autocomplete="off" />
+      <button id="testKeyBtn" style="padding:0 14px;background:rgba(244,164,96,.1);border:1px solid rgba(244,164,96,.25);border-radius:8px;color:#e8dcc4;cursor:pointer;font-size:13px;white-space:nowrap;transition:all .2s;" title="Test if your key works before entering">Test</button>
+    </div>
+    <div class="key-hint" id="keyHint">Select a provider above to see the key format</div>
+    <div id="testResult" style="display:none;margin-top:8px;font-size:13px;padding:8px 12px;border-radius:8px;"></div>
+
+    <button class="start-btn" id="startBtn">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Start Learning
+    </button>
+
+    <div class="login-links">
+      <a href="https://console.groq.com/keys" target="_blank">🔑 Groq key</a>
+      <a href="https://openrouter.ai/keys" target="_blank">🔑 OpenRouter key</a>
+      <a href="https://console.mistral.ai/api-keys/" target="_blank">🔑 Mistral key</a>
+      <a href="https://api.together.xyz/settings/api-keys" target="_blank">🔑 Together AI key</a>
+      <a href="https://platform.deepseek.com/api_keys" target="_blank">🔑 DeepSeek key</a>
+    </div>
+    <p class="login-footer">Your key stays in your browser only — never sent to any server.</p>
+  </div>
+</div>
+
+<!-- ════════════════════ APP SHELL ═══════════════════════════════ -->
+<div class="scholarai-container" id="appShell" style="display:none">
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+        <span>ScholarAI</span>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle">
+        <svg id="iconClose" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+        <svg id="iconMenu" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="sidebar-body">
+      <button class="new-chat-btn" id="newChatBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        <span>New Lesson</span>
+      </button>
+      <div class="chat-history">
+        <h3>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          Recent Lessons
+        </h3>
+        <div id="chatList"></div>
+      </div>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar"></div>
+          <div class="user-details">
+            <span class="user-name" id="userName"></span>
+            <span class="user-email" id="userEmail"></span>
+          </div>
+          <button class="logout-btn" id="logoutBtn" title="Switch provider / key">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <!-- Model dropdown -->
+        <div class="dropdown">
+          <button class="dropdown-btn" id="modelDropdownBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+            </svg>
+            <span id="modelLabel">—</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="dropdown-menu" id="modelMenu"></div>
+        </div>
+        <!-- Mode dropdown -->
+        <div class="dropdown">
+          <button class="dropdown-btn" id="modeDropdownBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+            <span id="modeLabel">Balanced</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="dropdown-menu" id="modeMenu"></div>
+        </div>
+        <!-- Live provider badge -->
+        <div class="provider-badge">
+          <div class="provider-dot"></div>
+          <span id="providerBadgeLabel">—</span>
+        </div>
+      </div>
+      <div class="top-bar-right">
+        <button class="guide-btn" id="backendGuideBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Backend Setup
+        </button>
+        <button class="notepad-btn" id="notepadToggleBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15.5 2H8.6c-.4 0-.8.2-1.1.5-.3.3-.5.7-.5 1.1v12.8c0 .4.2.8.5 1.1.3.3.7.5 1.1.5h9.8c.4 0 .8-.2 1.1-.5.3-.3.5-.7.5-1.1V6.5L15.5 2z"/>
+            <polyline points="15 2 15 7 20 7"/><line x1="10" y1="12" x2="16" y2="12"/><line x1="10" y1="16" x2="14" y2="16"/>
+          </svg>
+          Notes
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages-area" id="messagesArea">
+      <div class="empty-state" id="emptyState">
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+        <h2>Ready to Learn?</h2>
+        <p>Ask me anything about your school subjects!</p>
+        <div class="suggestion-chips">
+          <button onclick="app.setInput('Explain photosynthesis in simple terms')">Explain photosynthesis</button>
+          <button onclick="app.setInput('Help me solve quadratic equations')">Quadratic equations</button>
+          <button onclick="app.setInput('Teach me about the French Revolution')">French Revolution</button>
+          <button onclick="app.setInput('Explain Newton\'s laws of motion')">Newton's laws</button>
+        </div>
+      </div>
+      <div class="messages-list" id="messagesList" style="display:none"></div>
+    </div>
+
+    <!-- Input -->
+    <div class="input-area">
+      <div class="file-attach-area" id="fileAttachArea"><!-- chips injected here --></div>
+      <div class="input-container">
+        <input type="file" id="fileInput" style="display:none" multiple accept="image/*,.txt,.md,.js,.ts,.jsx,.tsx,.py,.java,.c,.cpp,.cs,.html,.css,.json,.xml,.csv,.sh,.yaml,.yml,.rb,.php,.sql,.rs,.go,.swift,.kt,.lua" />
+        <button class="upload-btn" id="uploadBtn" title="Attach images or files (up to 7 images)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+          </svg>
+        </button>
+        <input type="text" id="messageInput" placeholder="Ask a question about any subject…" />
+        <button class="send-btn" id="sendBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notepad -->
+  <div class="notepad-panel" id="notepadPanel" style="display:none">
+    <div class="notepad-header">
+      <h3>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15.5 2H8.6c-.4 0-.8.2-1.1.5-.3.3-.5.7-.5 1.1v12.8c0 .4.2.8.5 1.1.3.3.7.5 1.1.5h9.8c.4 0 .8-.2 1.1-.5.3-.3.5-.7.5-1.1V6.5L15.5 2z"/>
+          <polyline points="15 2 15 7 20 7"/><line x1="10" y1="12" x2="16" y2="12"/><line x1="10" y1="16" x2="14" y2="16"/>
+        </svg>
+        My Notes
+      </h3>
+      <div class="notepad-actions">
+        <button id="exportNotesBtn">Export</button>
+        <button id="closeNotepadBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <textarea id="notepadArea" placeholder="Take notes during your learning session…"></textarea>
+  </div>
+</div>
+
+<!-- ════════════════════ ARTIFACT PANEL ══════════════════════════ -->
+<div class="artifact-overlay" id="artifactOverlay">
+  <div class="artifact-box">
+    <div class="artifact-head">
+      <span class="a-title" id="artifactTitle">preview</span>
+      <div class="artifact-tabs">
+        <button class="artifact-tab active" id="tabPreview" onclick="artifactView('preview')">▶ Preview</button>
+        <button class="artifact-tab" id="tabCode" onclick="artifactView('code')">{ } Code</button>
+        <button class="artifact-tab" id="tabSplit" onclick="artifactView('split')">⊞ Split</button>
+      </div>
+      <button class="artifact-close" onclick="closeArtifact()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="artifact-body" id="artifactBody">
+      <iframe class="artifact-frame" id="artifactFrame" sandbox="allow-scripts allow-same-origin allow-forms" title="Artifact Preview"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ BACKEND GUIDE MODAL ═══════════════════ -->
+<div class="modal-overlay" id="backendModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>🛠️ Backend Setup — Simple Guide</h2>
+      <button class="modal-close" id="closeModal">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+
+      <p>You need a backend for two things: <strong style="color:#ffd89b">file uploads</strong> and using <strong style="color:#ffd89b">Together AI / DeepSeek</strong> (those APIs block direct browser requests). The simplest fix uses only Python — no Node.js, no npm, nothing to install.</p>
+
+      <h3>✅ Option A — Serve the file (fixes Together AI &amp; DeepSeek, 10 seconds)</h3>
+      <p>Open a terminal <strong>in the same folder</strong> as <code>ScholarAI.html</code> and run:</p>
+      <pre id="cmdA" style="cursor:pointer;user-select:all" onclick="navigator.clipboard?.writeText('python -m http.server 8080');this.style.outline='2px solid #50c878';setTimeout(()=>this.style.outline='',1500)">python -m http.server 8080</pre>
+      <p>Then open <strong style="color:#79c0ff">http://localhost:8080/ScholarAI.html</strong> — all providers work. <em style="color:rgba(232,220,196,.4)">(Click the box to copy the command)</em></p>
+
+      <h3>📁 Option B — Full backend with file upload support</h3>
+      <p>Requires Python 3 (already on Mac/Linux; <a href="https://python.org" target="_blank" style="color:#79c0ff">download for Windows</a>). No other installs needed.</p>
+
+      <div class="modal-step"><div class="modal-step-num">1</div><div>
+        <p>Create a file called <code>backend.py</code> <strong>in the same folder as ScholarAI.html</strong> and paste this:</p>
+        <pre style="font-size:12px"><span class="tok-kw">import</span> http.server, json, urllib.request, urllib.error, os, ssl, cgi
+
+PORT       = <span class="tok-num">8080</span>
+UPLOAD_DIR = <span class="tok-str">"uploads"</span>
+<span class="tok-kw">if not</span> os.path.<span class="tok-fn">exists</span>(UPLOAD_DIR): os.<span class="tok-fn">makedirs</span>(UPLOAD_DIR)
+
+<span class="tok-kw">class</span> <span class="tok-cls">Handler</span>(http.server.<span class="tok-cls">SimpleHTTPRequestHandler</span>):
+    <span class="tok-kw">def</span> <span class="tok-fn">do_OPTIONS</span>(self):
+        self.<span class="tok-fn">send_response</span>(<span class="tok-num">200</span>); self.<span class="tok-fn">_cors</span>(); self.<span class="tok-fn">end_headers</span>()
+
+    <span class="tok-kw">def</span> <span class="tok-fn">do_POST</span>(self):
+        <span class="tok-kw">if</span> self.path == <span class="tok-str">'/proxy'</span>:
+            length = <span class="tok-fn">int</span>(self.headers[<span class="tok-str">'Content-Length'</span>])
+            data   = json.<span class="tok-fn">loads</span>(self.rfile.<span class="tok-fn">read</span>(length))
+            url    = data.<span class="tok-fn">pop</span>(<span class="tok-str">'__url'</span>)
+            key    = data.<span class="tok-fn">pop</span>(<span class="tok-str">'__key'</span>)
+            xhdrs  = data.<span class="tok-fn">pop</span>(<span class="tok-str">'__headers'</span>, {})
+            req    = urllib.request.<span class="tok-cls">Request</span>(url,
+                data=json.<span class="tok-fn">dumps</span>(data).<span class="tok-fn">encode</span>(),
+                headers={<span class="tok-str">'Content-Type'</span>:<span class="tok-str">'application/json'</span>,
+                         <span class="tok-str">'Authorization'</span>:f<span class="tok-str">'Bearer {key}'</span>, **xhdrs},
+                method=<span class="tok-str">'POST'</span>)
+            ctx = ssl.<span class="tok-fn">create_default_context</span>()
+            <span class="tok-kw">try</span>:
+                <span class="tok-kw">with</span> urllib.request.<span class="tok-fn">urlopen</span>(req, context=ctx) <span class="tok-kw">as</span> r:
+                    body = r.<span class="tok-fn">read</span>()
+                self.<span class="tok-fn">send_response</span>(<span class="tok-num">200</span>)
+            <span class="tok-kw">except</span> urllib.error.<span class="tok-cls">HTTPError</span> <span class="tok-kw">as</span> e:
+                body = e.<span class="tok-fn">read</span>(); self.<span class="tok-fn">send_response</span>(e.code)
+            self.<span class="tok-fn">_cors</span>(); self.<span class="tok-fn">send_header</span>(<span class="tok-str">'Content-Type'</span>,<span class="tok-str">'application/json'</span>)
+            self.<span class="tok-fn">end_headers</span>(); self.wfile.<span class="tok-fn">write</span>(body)
+
+        <span class="tok-kw">elif</span> self.path == <span class="tok-str">'/upload'</span>:
+            ctype, pdict = cgi.<span class="tok-fn">parse_header</span>(self.headers[<span class="tok-str">'content-type'</span>])
+            <span class="tok-kw">if</span> ctype == <span class="tok-str">'multipart/form-data'</span>:
+                pdict[<span class="tok-str">'boundary'</span>] = pdict[<span class="tok-str">'boundary'</span>].<span class="tok-fn">encode</span>()
+                fs       = cgi.<span class="tok-cls">FieldStorage</span>(fp=self.rfile, headers=self.headers,
+                               environ={<span class="tok-str">'REQUEST_METHOD'</span>:<span class="tok-str">'POST'</span>})
+                fileitem = fs[<span class="tok-str">'file'</span>]
+                filename = os.path.<span class="tok-fn">basename</span>(fileitem.filename)
+                dest     = os.path.<span class="tok-fn">join</span>(UPLOAD_DIR, filename)
+                <span class="tok-kw">with</span> <span class="tok-fn">open</span>(dest, <span class="tok-str">'wb'</span>) <span class="tok-kw">as</span> f:
+                    f.<span class="tok-fn">write</span>(fileitem.file.<span class="tok-fn">read</span>())
+                result = json.<span class="tok-fn">dumps</span>({<span class="tok-str">"status"</span>:<span class="tok-str">"ok"</span>,<span class="tok-str">"filename"</span>:filename}).<span class="tok-fn">encode</span>()
+                self.<span class="tok-fn">send_response</span>(<span class="tok-num">200</span>); self.<span class="tok-fn">_cors</span>()
+                self.<span class="tok-fn">send_header</span>(<span class="tok-str">'Content-Type'</span>,<span class="tok-str">'application/json'</span>)
+                self.<span class="tok-fn">end_headers</span>(); self.wfile.<span class="tok-fn">write</span>(result)
+            <span class="tok-kw">else</span>:
+                self.<span class="tok-fn">send_response</span>(<span class="tok-num">400</span>); self.<span class="tok-fn">end_headers</span>()
+        <span class="tok-kw">else</span>:
+            self.<span class="tok-fn">send_response</span>(<span class="tok-num">404</span>); self.<span class="tok-fn">end_headers</span>()
+
+    <span class="tok-kw">def</span> <span class="tok-fn">_cors</span>(self):
+        self.<span class="tok-fn">send_header</span>(<span class="tok-str">'Access-Control-Allow-Origin'</span>,<span class="tok-str">'*'</span>)
+        self.<span class="tok-fn">send_header</span>(<span class="tok-str">'Access-Control-Allow-Headers'</span>,<span class="tok-str">'*'</span>)
+        self.<span class="tok-fn">send_header</span>(<span class="tok-str">'Access-Control-Allow-Methods'</span>,<span class="tok-str">'POST, OPTIONS'</span>)
+    <span class="tok-kw">def</span> <span class="tok-fn">log_message</span>(self,*a): <span class="tok-kw">pass</span>
+
+print(f<span class="tok-str">"✅ Backend Active: http://localhost:{PORT}/ScholarAI.html"</span>)
+http.server.<span class="tok-cls">HTTPServer</span>((<span class="tok-str">''</span>,PORT),<span class="tok-cls">Handler</span>).<span class="tok-fn">serve_forever</span>()</pre>
+      </div></div>
+
+      <div class="modal-step"><div class="modal-step-num">2</div><div>
+        <p>Open a terminal in that folder and run:</p>
+        <pre style="cursor:pointer" onclick="navigator.clipboard?.writeText(this.textContent.trim());this.style.outline='2px solid #50c878';setTimeout(()=>this.style.outline='',1500)">python backend.py</pre>
+        <p>You'll see: <code style="color:#50c878">✅ Open → http://localhost:8080/ScholarAI.html</code></p>
+        <p>Open that URL. All 5 providers work and file upload will be enabled. Leave the terminal open while using ScholarAI. <em style="color:rgba(232,220,196,.4)">(Click code to copy)</em></p>
+      </div></div>
+
+      <div class="modal-step"><div class="modal-step-num">3</div><div>
+        <p><strong>That's it.</strong> No npm, no installs, no config files. If you see <em>"python not found"</em> try <code>python3 backend.py</code>. On Windows you can also double-click the <code>backend.py</code> file.</p>
+      </div></div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ════════════════════════ LOGIC ═══════════════════════════════ -->
+<script>
+// ── Provider catalogue (all use OpenAI-compatible /chat/completions) ──
+const PROVIDERS = {
+  groq: {
+    name: 'Groq',
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    keyHint: 'Format: gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+    keyPlaceholder: 'gsk_...',
+    browserSafe: true,
+    models: [
+      { id: 'llama-3.3-70b-versatile',          name: 'Llama 3.3 70B',       description: 'Best quality · Versatile' },
+      { id: 'llama-3.1-8b-instant',             name: 'Llama 3.1 8B',        description: 'Ultra fast · Lightweight' },
+      { id: 'mixtral-8x7b-32768',               name: 'Mixtral 8×7B',        description: 'Great reasoning' },
+      { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout 👁', description: 'Vision · Images + text' },
+      { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', name: 'Llama 4 Maverick 👁', description: 'Vision · High quality' }
+    ]
+  },
+  openrouter: {
+    name: 'OpenRouter',
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    extraHeaders: { 'HTTP-Referer': 'https://scholarai.app', 'X-Title': 'ScholarAI' },
+    keyHint: 'Format: sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+    keyPlaceholder: 'sk-or-v1-...',
+    browserSafe: true,
+    models: [
+      { id: 'meta-llama/llama-3.3-70b-instruct:free',          name: 'Llama 3.3 70B',    description: 'Free · High quality' },
+      { id: 'mistralai/mistral-7b-instruct:free',              name: 'Mistral 7B',        description: 'Free · Fast' },
+      { id: 'qwen/qwen-2.5-72b-instruct:free',                 name: 'Qwen 2.5 72B',     description: 'Free · Strong reasoning' },
+      { id: 'deepseek/deepseek-r1:free',                       name: 'DeepSeek R1',       description: 'Free · Thinking model' },
+      { id: 'meta-llama/llama-3.2-11b-vision-instruct:free',   name: 'Llama 3.2 Vision 👁', description: 'Free · Images + text' },
+      { id: 'google/gemini-2.0-flash-exp:free',                name: 'Gemini 2.0 Flash 👁', description: 'Free · Vision · Fast' }
+    ]
+  },
+  mistral: {
+    name: 'Mistral AI',
+    url: 'https://api.mistral.ai/v1/chat/completions',
+    keyHint: 'Format: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  (32 hex chars)',
+    keyPlaceholder: 'Paste Mistral key…',
+    browserSafe: true,
+    models: [
+      { id: 'mistral-small-latest',  name: 'Mistral Small',    description: 'Best value · Fast' },
+      { id: 'open-mistral-nemo',     name: 'Mistral Nemo',     description: 'Open · Efficient' },
+      { id: 'codestral-latest',      name: 'Codestral',        description: 'Specialised for code' },
+      { id: 'pixtral-12b-2409',      name: 'Pixtral 12B 👁',   description: 'Vision · Images + text' }
+    ]
+  },
+  together: {
+    name: 'Together AI',
+    url: 'https://api.together.xyz/v1/chat/completions',
+    keyHint: 'Format: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  (64 chars)',
+    keyPlaceholder: 'Paste Together AI key…',
+    browserSafe: false,
+    models: [
+      { id: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', name: 'Llama 3.3 70B Turbo', description: 'Best quality · Fast' },
+      { id: 'Qwen/Qwen2.5-72B-Instruct-Turbo',         name: 'Qwen 2.5 72B',        description: 'Strong reasoning' },
+      { id: 'mistralai/Mixtral-8x7B-Instruct-v0.1',    name: 'Mixtral 8×7B',        description: 'Great all-rounder' },
+      { id: 'google/gemma-2-9b-it',                    name: 'Gemma 2 9B',          description: 'Google · Efficient' }
+    ]
+  },
+  deepseek: {
+    name: 'DeepSeek',
+    url: 'https://api.deepseek.com/v1/chat/completions',
+    keyHint: 'Format: sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+    keyPlaceholder: 'sk-...',
+    browserSafe: false,
+    models: [
+      { id: 'deepseek-chat',     name: 'DeepSeek-V3',  description: 'Best · Fast · Very cheap' },
+      { id: 'deepseek-reasoner', name: 'DeepSeek-R1',  description: 'Reasoning model · Step-by-step' }
+    ]
+  }
+};
+
+const MODES = [
+  { id: 'balanced', name: 'Balanced', description: 'Standard teaching mode' },
+  { id: 'detailed', name: 'Detailed', description: 'Step-by-step explanations' },
+  { id: 'concise',  name: 'Concise',  description: 'Brief, direct answers' },
+  { id: 'socratic', name: 'Socratic', description: 'Learn through questions' }
+];
+
+const ARTIFACT_INSTRUCTION = `
+You can render interactive code previews by writing "Artifact:" (optionally followed by a short title) on the line immediately before a fenced code block. Use this whenever you produce standalone HTML, CSS, JavaScript, or SVG that is worth previewing. Examples:
+
+Artifact: My Page
+\`\`\`html
+<!DOCTYPE html>...
+\`\`\`
+
+Artifact: Button Animation
+\`\`\`css
+body { ... }
+\`\`\`
+
+Artifact: Countdown Timer
+\`\`\`js
+setInterval(() => { ... }, 1000);
+\`\`\`
+
+Only use Artifact: when the code is complete and self-contained enough to render. For code snippets that are just examples, use regular code blocks without Artifact:.`;
+
+const SYSTEM_PROMPTS = {
+  balanced: `You are an educational AI assistant. Provide clear, helpful explanations for students learning various subjects.${ARTIFACT_INSTRUCTION}`,
+  detailed: `You are an educational AI assistant. Provide comprehensive, step-by-step explanations with examples. Break down complex topics into understandable parts.${ARTIFACT_INSTRUCTION}`,
+  concise:  `You are an educational AI assistant. Provide brief, direct answers that get straight to the point while remaining accurate.${ARTIFACT_INSTRUCTION}`,
+  socratic: `You are a Socratic tutor. Guide students to understanding through thoughtful questions. Encourage critical thinking and self-discovery.${ARTIFACT_INSTRUCTION}`
+};
+
+const STORAGE_KEY = 'scholarai_chats';
+
+// ── State ─────────────────────────────────────────────────────────
+const state = {
+  providerId: 'groq',
+  apiKey: '',
+  chats: [], currentChatId: null, messages: [],
+  isLoading: false,
+  selectedModel: PROVIDERS.groq.models[0].id,
+  selectedMode: 'balanced',
+  sidebarOpen: true, showNotepad: false,
+  pendingFiles: []  // [{ id, name, size, type:'image'|'text', dataUrl?, content? }]
+};
+
+// ── DOM ───────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const loginScreen=$('loginScreen'), appShell=$('appShell'), apiKeyInput=$('apiKeyInput'), startBtn=$('startBtn');
+const providerGrid=$('providerGrid'), sidebar=$('sidebar'), sidebarToggle=$('sidebarToggle');
+const iconClose=$('iconClose'), iconMenu=$('iconMenu'), chatList=$('chatList'), newChatBtn=$('newChatBtn');
+const userAvatar=$('userAvatar'), userName=$('userName'), userEmail=$('userEmail'), logoutBtn=$('logoutBtn');
+const modelMenu=$('modelMenu'), modeMenu=$('modeMenu'), modelLabel=$('modelLabel'), modeLabel=$('modeLabel');
+const providerBadge=$('providerBadgeLabel'), notepadToggle=$('notepadToggleBtn'), notepadPanel=$('notepadPanel');
+const notepadArea=$('notepadArea'), exportNotesBtn=$('exportNotesBtn'), closeNotepad=$('closeNotepadBtn');
+const emptyState=$('emptyState'), messagesList=$('messagesList'), messagesArea=$('messagesArea');
+const messageInput=$('messageInput'), sendBtn=$('sendBtn'), uploadBtn=$('uploadBtn'), fileInput=$('fileInput');
+const toast=$('toast');
+
+// ── Toast ─────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, ms=4000){
+  toast.textContent=msg; toast.classList.add('visible');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>toast.classList.remove('visible'), ms);
+}
+
+// ── SVG helpers ───────────────────────────────────────────────────
+const svgMsgSq=(s=14)=>`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+const svgTrash=(s=14)=>`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>`;
+const svgUser=(s=20)=>`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+const svgBook=(s=20)=>`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
+const svgCode=(s=14)=>`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
+
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ══════════════════════════════════════════════════════════════════
+// SYNTAX HIGHLIGHTER
+// ══════════════════════════════════════════════════════════════════
+const SH = (() => {
+  // Shared keyword sets
+  const JS_KW  = /\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|new|delete|typeof|instanceof|class|extends|import|export|default|from|async|await|try|catch|finally|throw|of|in|yield|static|get|set|this|super)\b/g;
+  const PY_KW  = /\b(def|class|return|if|elif|else|for|while|with|as|import|from|pass|break|continue|and|or|not|in|is|lambda|try|except|finally|raise|global|nonlocal|yield|async|await)\b/g;
+  const JAVA_KW= /\b(public|private|protected|static|final|abstract|class|interface|extends|implements|new|return|if|else|for|while|do|switch|case|break|continue|try|catch|finally|throw|throws|import|package|void|int|long|double|float|boolean|char|byte|short|String|null|true|false|this|super)\b/g;
+  const BOOL   = /\b(true|false|null|undefined|None|True|False|NaN|Infinity)\b/g;
+  const NUM    = /\b(0x[\da-fA-F]+|\d+\.?\d*([eE][+-]?\d+)?)\b/g;
+  const STR_SQ = /'(?:[^'\\]|\\.)*'/g;
+  const STR_DQ = /"(?:[^"\\]|\\.)*"/g;
+  const STR_BT = /`(?:[^`\\]|\\.)*`/g;
+  const CMT_L  = /(\/\/[^\n]*|#[^\n]*)/g;
+  const CMT_B  = /\/\*[\s\S]*?\*\//g;
+  const FUNC   = /\b([a-zA-Z_$][\w$]*)\s*(?=\()/g;
+  const CLS_RE = /\b([A-Z][a-zA-Z0-9_]*)\b/g;
+
+  function wrap(tok,cls){ return `<span class="tok-${cls}">${tok}</span>`; }
+  // Sentinel: replace matched regions with a placeholder to avoid double-processing
+  function protect(code, regex, fn){
+    const parts=[], markers=[];
+    let last=0, m;
+    regex.lastIndex=0;
+    while((m=regex.exec(code))!==null){
+      parts.push(code.slice(last,m.index));
+      const ph=`\x00${markers.length}\x00`;
+      markers.push(fn(m[0]));
+      parts.push(ph);
+      last=m.index+m[0].length;
+      regex.lastIndex=last;
+    }
+    parts.push(code.slice(last));
+    const result=parts.join('');
+    return{result,markers};
+  }
+  function resolveMarkers(s,markers){
+    return s.replace(/\x00(\d+)\x00/g,(_,i)=>markers[i]);
+  }
+
+  function highlightGeneric(code, kwRegex){
+    let src=code, allMarkers=[];
+    const chain=(regex,cls)=>{
+      const{result,markers}=protect(src,regex,t=>wrap(t,cls));
+      src=result; allMarkers=[...allMarkers,...markers];
+    };
+    // Order matters: comments first, then strings, then everything else
+    chain(CMT_B,'cmt'); chain(CMT_L,'cmt'); chain(STR_BT,'str'); chain(STR_DQ,'str'); chain(STR_SQ,'str');
+    if(kwRegex){ chain(BOOL,'bool'); chain(kwRegex,'kw'); }
+    chain(FUNC,'fn'); chain(CLS_RE,'cls'); chain(NUM,'num');
+    return resolveMarkers(src,allMarkers);
+  }
+
+  function highlightCSS(code){
+    // Very basic CSS: selector, property, value, comment
+    return code
+      .replace(/(\/\*[\s\S]*?\*\/)/g, wrap('$1','cmt'))
+      .replace(/([^{};,\n]+)(?=\s*\{)/g, wrap('$1','sel'))
+      .replace(/([\w-]+)\s*(?=:)/g, wrap('$1','prop'))
+      .replace(/:\s*([^;{}]+)/g, (_,v)=>`: ${wrap(v,'val')}`);
+  }
+
+  function highlightHTML(code){
+    return code
+      .replace(/(&lt;!--[\s\S]*?--&gt;)/g, wrap('$1','cmt'))
+      .replace(/(&lt;\/?)([\w-]+)/g, (_,slash,tag)=>`${wrap(slash,'pun')}${wrap(tag,'tag')}`)
+      .replace(/([\w-]+)(?==&quot;)/g, wrap('$1','attr'))
+      .replace(/(&quot;[^&]*&quot;)/g, wrap('$1','str'));
+  }
+
+  function highlightJSON(code){
+    return code
+      .replace(/"([^"]+)"(?=\s*:)/g, `${wrap('"$1"','attr')}`)
+      .replace(/:\s*"([^"]*)"/g, (_, v)=>`: ${wrap(`"${v}"`,'str')}`)
+      .replace(/:\s*(\d+\.?\d*)/g, (_, v)=>`: ${wrap(v,'num')}`)
+      .replace(/:\s*(true|false|null)/g, (_, v)=>`: ${wrap(v,'bool')}`);
+  }
+
+  return {
+    highlight(lang, rawCode){
+      // rawCode has already been HTML-escaped, so we work on the escaped string
+      const l = lang.toLowerCase();
+      if(l==='html'||l==='xml'||l==='svg') return highlightHTML(rawCode);
+      if(l==='css'||l==='scss') return highlightCSS(rawCode);
+      if(l==='json') return highlightJSON(rawCode);
+      if(l==='py'||l==='python') return highlightGeneric(rawCode, PY_KW);
+      if(l==='java'||l==='kotlin'||l==='swift') return highlightGeneric(rawCode, JAVA_KW);
+      if(l==='js'||l==='javascript'||l==='ts'||l==='typescript'||l==='jsx'||l==='tsx')
+        return highlightGeneric(rawCode, JS_KW);
+      if(l==='bash'||l==='sh'||l==='shell')
+        return highlightGeneric(rawCode, /\b(echo|cd|ls|mkdir|rm|cp|mv|cat|grep|sed|awk|export|source|if|fi|then|else|for|do|done|while|case|esac|function|return)\b/g);
+      // Generic fallback (strings, comments, numbers only)
+      return highlightGeneric(rawCode, null);
+    }
+  };
+})();
+
+// ══════════════════════════════════════════════════════════════════
+// MARKDOWN INLINE RENDERER  (for text outside code blocks)
+// ══════════════════════════════════════════════════════════════════
+function renderMarkdown(raw){
+  // 1. Escape HTML first
+  let s = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // 2. Horizontal rules — lines that are only = or - (3+)
+  s = s.replace(/^[ \t]*(={3,}|-{3,})[ \t]*$/gm, '<hr class="msg-hr">');
+
+  // 3. Bold  **text**
+  s = s.replace(/\*\*(.+?)\*\*/g, '<span class="msg-bold">$1</span>');
+
+  // 4. Italic  *text*  (single star, not already consumed by bold)
+  s = s.replace(/\*([^*\n]+?)\*/g, '<span class="msg-italic">$1</span>');
+
+  // 5. Inline code/highlight  `text`
+  s = s.replace(/`([^`\n]+?)`/g, '<code class="msg-code">$1</code>');
+
+  // 6. Wrap remaining lines in <p> (skip <hr> lines)
+  const lines = s.split('\n');
+  const out = [];
+  let buf = [];
+  const flush = () => { if(buf.length){ out.push(`<p>${buf.join('<br>')}</p>`); buf=[]; } };
+  for(const ln of lines){
+    if(ln.startsWith('<hr')){ flush(); out.push(ln); }
+    else if(ln.trim()==='') flush();
+    else buf.push(ln);
+  }
+  flush();
+  return out.join('\n');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CONTENT RENDERER  (splits fenced code from prose, handles Artifact:)
+// ══════════════════════════════════════════════════════════════════
+function renderContent(c, isNew=false){
+  // Match: optional "Artifact: Title\n" just before a fenced block
+  const re = /(?:^|\n)(Artifact:[ \t]*([^\n]*)\n)?```(\w+)?\n([\s\S]*?)```/g;
+  const parts = []; let last = 0, m;
+
+  while((m = re.exec(c)) !== null){
+    // Text before this match (strip the leading \n we captured)
+    const matchStart = m.index + (m[0].startsWith('\n') ? 1 : 0);
+    if(matchStart > last) parts.push({t:'text', v: c.slice(last, matchStart)});
+
+    const isArtifact = !!m[1];                       // was "Artifact:" present?
+    const artTitle   = (m[2]||'').trim() || null;     // optional title after "Artifact:"
+    const lang       = m[3] || 'text';
+    const code       = m[4].trim();
+
+    parts.push({ t: isArtifact ? 'artifact' : 'code', lang, v: code, title: artTitle });
+    last = m.index + m[0].length;
+  }
+
+  if(last < c.length) parts.push({t:'text', v: c.slice(last)});
+  if(!parts.length)   parts.push({t:'text', v: c});
+
+  let firstArtifactUid = null;
+
+  const html = parts.map(p => {
+    if(p.t === 'artifact') {
+      const uid = 'cb-' + Math.random().toString(36).slice(2,9);
+      if(!firstArtifactUid) firstArtifactUid = uid;
+      const langL = p.lang.toLowerCase();
+      const displayTitle = p.title || `${p.lang} artifact`;
+      const srcdoc = buildSrcdocFromRaw(p.v, langL);
+      const iframeId = 'af-' + uid;
+
+      return `<div class="artifact-card">
+        <div class="artifact-card-head">
+          <span class="artifact-card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </span>
+          <span class="artifact-card-title">🎨 ${esc(displayTitle)}</span>
+          <span class="artifact-card-lang">${esc(p.lang)}</span>
+        </div>
+        <div class="artifact-card-preview" onclick="openArtifact('${uid}','${esc(p.lang)}')">
+          <iframe id="${iframeId}" srcdoc="${srcdoc.replace(/"/g,'&quot;').replace(/\n/g,'&#10;')}" sandbox="allow-scripts" tabindex="-1"></iframe>
+          <div class="artifact-card-preview-overlay">
+            <button class="artifact-open-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Open Preview
+            </button>
+          </div>
+        </div>
+        <div class="artifact-card-footer">
+          <button class="artifact-footer-btn primary" onclick="openArtifact('${uid}','${esc(p.lang)}')">▶ Preview</button>
+          <button class="artifact-footer-btn" onclick="openArtifactCode('${uid}','${esc(p.lang)}')">{ } Code</button>
+          <button class="artifact-footer-btn" onclick="openArtifactSplit('${uid}','${esc(p.lang)}')">⊞ Split</button>
+          <button class="artifact-footer-btn" style="margin-left:auto" data-target="${uid}" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre style="display:none"><code id="${uid}" data-raw="${encodeURIComponent(p.v)}" data-lang="${esc(p.lang)}">${SH.highlight(p.lang, esc(p.v))}</code></pre>
+      </div>`;
+    }
+
+    if(p.t === 'code'){
+      const uid = 'cb-' + Math.random().toString(36).slice(2,9);
+      const escaped    = esc(p.v);
+      const highlighted= SH.highlight(p.lang, escaped);
+      const langL      = p.lang.toLowerCase();
+      const isRenderable = ['html','css','js','javascript','jsx','svg'].includes(langL);
+      const runBtn = isRenderable
+        ? `<button class="code-run-btn" onclick="openArtifact('${uid}','${esc(p.lang)}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Run
+           </button>` : '';
+      return `<div class="code-block">
+        <div class="code-header">
+          ${svgCode()}<span style="color:#f4a460;font-weight:600">${esc(p.lang)}</span>
+          ${runBtn}
+          <button class="code-copy-btn" data-target="${uid}" onclick="copyCode(this)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <pre><code id="${uid}" data-raw="${encodeURIComponent(p.v)}" data-lang="${esc(p.lang)}">${highlighted}</code></pre>
+      </div>`;
+    }
+
+    return renderMarkdown(p.v);
+  }).join('');
+
+  // Auto-open first artifact when AI sends a new message
+  if(isNew && firstArtifactUid){
+    requestAnimationFrame(()=> openArtifact(firstArtifactUid, document.getElementById(firstArtifactUid)?.dataset.lang || 'html'));
+  }
+
+  return html;
+}
+
+// ── Copy code to clipboard ────────────────────────────────────────
+function copyCode(btn){
+  const el = document.getElementById(btn.dataset.target);
+  const code = el ? el.innerText : '';
+  const ok = () => {
+    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    btn.classList.add('copied');
+    setTimeout(()=>{ btn.innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`; btn.classList.remove('copied'); }, 2000);
+  };
+  if(navigator.clipboard) navigator.clipboard.writeText(code).then(ok).catch(()=>fbCopy(code,ok));
+  else fbCopy(code,ok);
+}
+function fbCopy(text,cb){
+  const ta=document.createElement('textarea'); ta.value=text;
+  ta.style.cssText='position:fixed;top:-9999px;opacity:0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{ document.execCommand('copy'); cb(); }catch(e){}
+  document.body.removeChild(ta);
+}
+function renderMsg(msg, isNew=false){
+  let content = msg.content;
+  // Strip image summary lines from display (they were added for history, not to render as text)
+  if(typeof content === 'string'){
+    // Extract any data URLs we might have stored (shouldn't happen but guard)
+    content = content.replace(/\*Images: (.*?)\*/g, (_, names) => {
+      // Show as a simple italic label
+      return `<em style="color:rgba(232,220,196,.4);font-size:12px">📸 ${esc(names)}</em>`;
+    });
+  }
+  const rendered = (typeof content === 'string') ? renderContent(content, isNew && msg.role==='assistant') : '';
+  return `<div class="message-wrapper ${msg.role==='user'?'user-message':'assistant-message'}"><div class="message-avatar">${msg.role==='user'?svgUser():svgBook()}</div><div class="message-content">${rendered}</div></div>`;
+}
+const renderTyping=()=>`<div class="message-wrapper assistant-message"><div class="message-avatar">${svgBook()}</div><div class="message-content"><div class="typing-indicator"><span></span><span></span><span></span></div></div></div>`;
+
+// ── UI helpers ────────────────────────────────────────────────────
+function refreshChatList(){
+  chatList.innerHTML=state.chats.map(c=>`<div class="chat-item${state.currentChatId===c.id?' active':''}" data-id="${c.id}"><div class="chat-item-content">${svgMsgSq()}<span>${esc(c.title)}</span></div><button class="delete-chat-btn" data-del="${c.id}">${svgTrash()}</button></div>`).join('');
+}
+function refreshMessages(markLastNew=false){
+  if(!state.messages.length){ emptyState.style.display=''; messagesList.style.display='none'; return; }
+  emptyState.style.display='none'; messagesList.style.display='';
+  messagesList.innerHTML=state.messages.map((msg,i)=>
+    renderMsg(msg, markLastNew && i===state.messages.length-1)
+  ).join('');
+  messagesArea.scrollTop=messagesArea.scrollHeight;
+}
+function populateModelDropdown(){
+  const models=PROVIDERS[state.providerId].models;
+  modelMenu.innerHTML=models.map(m=>`<button class="dropdown-item${state.selectedModel===m.id?' active':''}" data-model="${m.id}"><div class="dropdown-item-title">${m.name}</div><div class="dropdown-item-desc">${m.description}</div></button>`).join('');
+  modelLabel.textContent=(models.find(m=>m.id===state.selectedModel)||models[0]).name;
+}
+function populateModeDropdown(){
+  modeMenu.innerHTML=MODES.map(m=>`<button class="dropdown-item${state.selectedMode===m.id?' active':''}" data-mode="${m.id}"><div class="dropdown-item-title">${m.name}</div><div class="dropdown-item-desc">${m.description}</div></button>`).join('');
+  modeLabel.textContent=MODES.find(m=>m.id===state.selectedMode).name;
+}
+const closeDropdowns=()=>{ modelMenu.classList.remove('visible'); modeMenu.classList.remove('visible'); };
+
+// ── Login ─────────────────────────────────────────────────────────
+const corsWarning = document.getElementById('corsWarning');
+const testResult  = document.getElementById('testResult');
+const testKeyBtn  = document.getElementById('testKeyBtn');
+
+function updateKeyHint(){
+  const prov = PROVIDERS[state.providerId];
+  document.getElementById('keyHint').textContent = prov.keyHint;
+  apiKeyInput.placeholder = prov.keyPlaceholder;
+
+  // Show CORS warning for providers that block file:// origin
+  const isFile = location.protocol === 'file:';
+  if(!prov.browserSafe && isFile){
+    // Pick the right command depending on what's available
+    const cmd = `python -m http.server 8080`;
+    document.getElementById('corsFixCmd').textContent = cmd;
+    corsWarning.style.display = 'block';
+  } else {
+    corsWarning.style.display = 'none';
+  }
+
+  // Clear any previous test result when switching provider
+  testResult.style.display = 'none';
+}
+updateKeyHint();
+
+// Copy the python command to clipboard
+function copyCorsCmd(el){
+  const text = el.textContent;
+  navigator.clipboard?.writeText(text).catch(()=>{
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  });
+  const orig = el.textContent;
+  el.textContent = '✅ Copied! Now run this in your terminal';
+  el.style.color = '#50c878';
+  setTimeout(()=>{ el.textContent = orig; el.style.color = ''; }, 3000);
+}
+
+// Test Key button — fires a real minimal request to the selected provider
+testKeyBtn.addEventListener('click', async () => {
+  const key = apiKeyInput.value.trim();
+  if(!key){ showTestResult('error','⚠️ Paste your API key first.'); return; }
+
+  testKeyBtn.textContent = '…';
+  testKeyBtn.disabled = true;
+  showTestResult('info', '⏳ Testing key…');
+
+  const prov = PROVIDERS[state.providerId];
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${key}`,
+    ...(prov.extraHeaders || {})
+  };
+
+  // Use a tiny 1-token probe to minimise cost / latency
+  const body = JSON.stringify({
+    model: prov.models[0].id,
+    max_tokens: 1,
+    messages: [{ role: 'user', content: 'Hi' }]
+  });
+
+  try {
+    const res = await fetch(prov.url, { method: 'POST', headers, body });
+    const data = await res.json().catch(() => ({}));
+
+    if(res.ok){
+      showTestResult('ok', `✅ Key works! Connected to ${prov.name} (${prov.models[0].name})`);
+    } else {
+      const msg = data?.error?.message || data?.message || `HTTP ${res.status}`;
+      showTestResult('error', `❌ ${msg}`);
+    }
+  } catch(err){
+    if(err.message === 'Failed to fetch' || err.message.includes('NetworkError')){
+      showTestResult('error',
+        `❌ Network blocked (CORS). Open this file via a local server, not directly.\n` +
+        `Run: python -m http.server 8080  then open http://localhost:8080/ScholarAI.html`
+      );
+    } else {
+      showTestResult('error', `❌ ${err.message}`);
+    }
+  }
+
+  testKeyBtn.textContent = 'Test';
+  testKeyBtn.disabled = false;
+});
+
+function showTestResult(type, msg){
+  testResult.style.display = 'block';
+  testResult.style.whiteSpace = 'pre-wrap';
+  testResult.style.wordBreak = 'break-word';
+  const styles = {
+    ok:    'background:rgba(80,200,120,.1);border:1px solid rgba(80,200,120,.3);color:#7ee787;',
+    error: 'background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.25);color:#ff7b72;',
+    info:  'background:rgba(244,164,96,.08);border:1px solid rgba(244,164,96,.2);color:#f4a460;',
+  };
+  testResult.style.cssText += styles[type] || styles.info;
+  testResult.textContent = msg;
+}
+
+providerGrid.addEventListener('click', e=>{
+  const card = e.target.closest('[data-provider]'); if(!card) return;
+  document.querySelectorAll('.provider-card').forEach(c=>c.classList.remove('selected'));
+  card.classList.add('selected');
+  state.providerId = card.dataset.provider;
+  state.selectedModel = PROVIDERS[state.providerId].models[0].id;
+  updateKeyHint();
+});
+
+startBtn.addEventListener('click', ()=>{
+  const key = apiKeyInput.value.trim();
+  if(!key){ showToast('⚠️ Please paste your API key first.'); return; }
+  state.apiKey = key;
+  state.chats = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+  const prov = PROVIDERS[state.providerId];
+  userAvatar.style.backgroundImage = `url(https://api.dicebear.com/7.x/identicon/svg?seed=${prov.name})`;
+  userName.textContent = prov.name;
+  userEmail.textContent = state.selectedModel;
+  providerBadge.textContent = prov.name;
+  loginScreen.style.display = 'none';
+  appShell.style.display = 'flex';
+  populateModelDropdown(); populateModeDropdown(); refreshChatList();
+});
+
+const logout=()=>{
+  state.apiKey=''; apiKeyInput.value='';
+  appShell.style.display='none'; loginScreen.style.display='flex';
+  testResult.style.display='none';
+};
+logoutBtn.addEventListener('click', logout);
+
+// ── Sidebar ───────────────────────────────────────────────────────
+sidebarToggle.addEventListener('click', ()=>{
+  state.sidebarOpen=!state.sidebarOpen;
+  sidebar.classList.toggle('closed',!state.sidebarOpen);
+  iconClose.style.display=state.sidebarOpen?'':'none';
+  iconMenu.style.display=state.sidebarOpen?'none':'';
+});
+
+// ── Chats ─────────────────────────────────────────────────────────
+const saveChats=()=>localStorage.setItem(STORAGE_KEY, JSON.stringify(state.chats));
+function createNewChat(){
+  const chat={id:Date.now().toString(), title:'New Lesson', messages:[], createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()};
+  state.chats.unshift(chat); state.currentChatId=chat.id; state.messages=[];
+  saveChats(); refreshChatList(); refreshMessages();
+}
+function selectChat(id){ const c=state.chats.find(c=>c.id===id); if(!c) return; state.currentChatId=id; state.messages=c.messages; refreshChatList(); refreshMessages(); }
+function deleteChat(id){ state.chats=state.chats.filter(c=>c.id!==id); if(state.currentChatId===id){state.currentChatId=null;state.messages=[];} saveChats(); refreshChatList(); refreshMessages(); }
+function autoRename(id,msg){ const t=msg.length>50?msg.slice(0,50)+'…':msg; state.chats=state.chats.map(c=>c.id===id?{...c,title:t}:c); saveChats(); refreshChatList(); }
+
+// ── Streaming helpers ─────────────────────────────────────────────
+// Insert a live assistant bubble with a cursor; return its content div
+function insertStreamBubble(){
+  emptyState.style.display='none'; messagesList.style.display='';
+  const wrap = document.createElement('div');
+  wrap.className = 'message-wrapper assistant-message';
+  wrap.id = 'streamBubble';
+  wrap.innerHTML = `<div class="message-avatar">${svgBook()}</div><div class="message-content" id="streamContent"><span class="stream-cursor"></span></div>`;
+  messagesList.appendChild(wrap);
+  messagesArea.scrollTop = messagesArea.scrollHeight;
+  return document.getElementById('streamContent');
+}
+
+// Update the streaming bubble with accumulated raw text + cursor
+function updateStreamBubble(contentEl, raw){
+  // Live render: escape HTML, handle separators, bold, italic, inline code, headings
+  let s = raw
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Fenced code blocks — show a styled block even mid-stream
+  s = s.replace(/```(\w+)?\n([\s\S]*?)(?:```|$)/g, (_, lang, code) => {
+    return `<div class="code-block" style="margin:8px 0"><div class="code-header">${svgCode()}<span style="color:#f4a460;font-weight:600">${lang||'code'}</span></div><pre><code>${code}</code></pre></div>`;
+  });
+
+  // Horizontal rules
+  s = s.replace(/^[ \t]*(={3,}|-{3,})[ \t]*$/gm, '<hr class="msg-hr">');
+
+  // Headings  ### ## #
+  s = s.replace(/^### (.+)$/gm, '<p style="font-size:15px;font-weight:700;color:#ffd89b;margin:10px 0 4px">$1</p>');
+  s = s.replace(/^## (.+)$/gm,  '<p style="font-size:16px;font-weight:700;color:#ffd89b;margin:12px 0 4px">$1</p>');
+  s = s.replace(/^# (.+)$/gm,   '<p style="font-size:18px;font-weight:700;color:#ffd89b;margin:14px 0 6px">$1</p>');
+
+  // Bold, italic, inline code
+  s = s.replace(/\*\*(.+?)\*\*/g, '<span class="msg-bold">$1</span>');
+  s = s.replace(/\*([^*\n]+?)\*/g, '<span class="msg-italic">$1</span>');
+  s = s.replace(/`([^`\n]+?)`/g, '<code class="msg-code">$1</code>');
+
+  // Wrap plain lines in paragraphs
+  const lines = s.split('\n');
+  const out = []; let buf = [];
+  const flush = () => { if(buf.length){ out.push(`<p>${buf.join('<br>')}</p>`); buf=[]; }};
+  for(const ln of lines){
+    if(ln.startsWith('<div') || ln.startsWith('<hr') || ln.startsWith('<p style')){ flush(); out.push(ln); }
+    else if(ln.trim()==='') flush();
+    else buf.push(ln);
+  }
+  flush();
+
+  contentEl.innerHTML = out.join('') + '<span class="stream-cursor"></span>';
+  messagesArea.scrollTop = messagesArea.scrollHeight;
+}
+
+// ── Send message (streaming) ──────────────────────────────────────
+async function sendMessage(){
+  const text = messageInput.value.trim(); if(!text || state.isLoading) return;
+  if(!state.currentChatId) createNewChat();
+
+  // Build user message content — plain string or vision array
+  const files = state.pendingFiles;
+  const images = files.filter(f => f.type === 'image');
+  const textFile = files.find(f => f.type === 'text');
+
+  let userContent;
+  let userDisplay; // what we show in chat history (text only for storage)
+
+  if(images.length > 0){
+    // Vision message: content array
+    const parts = [];
+    let msgText = text;
+    if(textFile) msgText += `\n\n📎 **${textFile.name}** (${fmtSize(textFile.size)})\n\`\`\`${textFile.name.split('.').pop()}\n${textFile.content}\n\`\`\``;
+    parts.push({ type: 'text', text: msgText });
+    for(const img of images){
+      parts.push({ type: 'image_url', image_url: { url: img.dataUrl } });
+    }
+    userContent = parts;
+    // For display + storage — text summary (not the full base64)
+    const imgLabel = images.map(i=>`📸 ${i.name}`).join(', ');
+    userDisplay = msgText + (images.length ? `\n\n*Images: ${imgLabel}*` : '');
+  } else if(textFile){
+    const ext = textFile.name.split('.').pop() || 'text';
+    userDisplay = text + `\n\n📎 **${textFile.name}** (${fmtSize(textFile.size)})\n\`\`\`${ext}\n${textFile.content}\n\`\`\``;
+    userContent = userDisplay;
+  } else {
+    userContent = text;
+    userDisplay = text;
+  }
+
+  clearPendingFiles();
+
+  // Store displayable version in history (no base64 blobs)
+  state.messages = [...state.messages, {role:'user', content: userDisplay}];
+  messageInput.value = ''; state.isLoading = true; sendBtn.disabled = true;
+  if(state.messages.length === 1) autoRename(state.currentChatId, text);
+
+  // Render user message immediately
+  emptyState.style.display='none'; messagesList.style.display='';
+  messagesList.innerHTML = state.messages.map(renderMsg).join('');
+  messagesArea.scrollTop = messagesArea.scrollHeight;
+
+  const prov    = PROVIDERS[state.providerId];
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${state.apiKey}`,
+    ...(prov.extraHeaders||{})
+  };
+
+  // Build messages for API — use vision content for current msg, plain text for history
+  const historyMsgs = state.messages.slice(0, -1).map(m => ({
+    role: m.role,
+    content: typeof m.content === 'string' ? m.content : m.content
+  }));
+  const currentMsg = { role:'user', content: userContent };
+
+  const body = JSON.stringify({
+    model: state.selectedModel,
+    max_tokens: 4096,
+    stream: true,
+    messages: [
+      { role:'system', content: SYSTEM_PROMPTS[state.selectedMode] },
+      ...historyMsgs,
+      currentMsg
+    ]
+  });
+
+  let accumulated = '';
+
+  try {
+    const res = await fetch(prov.url, { method:'POST', headers, body });
+
+    if(!res.ok){
+      const e = await res.json().catch(()=>({}));
+      throw new Error(e?.error?.message || e?.message || `HTTP ${res.status} ${res.statusText}`);
+    }
+
+    // Insert the live bubble
+    const contentEl = insertStreamBubble();
+
+    // Read the SSE stream
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let sseBuffer = '';
+
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+
+      sseBuffer += decoder.decode(value, {stream:true});
+      const lines = sseBuffer.split('\n');
+      sseBuffer = lines.pop(); // keep last incomplete line
+
+      for(const line of lines){
+        const trimmed = line.trim();
+        if(!trimmed || trimmed === 'data: [DONE]') continue;
+        if(!trimmed.startsWith('data: ')) continue;
+
+        try {
+          const json = JSON.parse(trimmed.slice(6));
+          // DeepSeek-R1 streams reasoning_content separately — skip it, use content only
+          const delta = json.choices?.[0]?.delta?.content || '';
+          if(delta){
+            accumulated += delta;
+            updateStreamBubble(contentEl, accumulated);
+          }
+        } catch(_){}
+      }
+    }
+
+    // Remove the streaming bubble and do a full render with syntax highlighting
+    const bubble = document.getElementById('streamBubble');
+    if(bubble) bubble.remove();
+    state.messages = [...state.messages, {role:'assistant', content: accumulated || '(No response)'}];
+
+  } catch(err){
+    console.error(err);
+    const bubble = document.getElementById('streamBubble');
+    if(bubble) bubble.remove();
+
+    const isCors = err.message==='Failed to fetch' || err.message.includes('NetworkError') || err.message.includes('Load failed');
+    let errMsg;
+    if(isCors){
+      errMsg = `⚠️ **Connection Blocked (CORS)**\n\n`
+        + `**${prov.name}** blocks requests from files opened directly in a browser.\n\n`
+        + `**Fix — run this command in the folder containing ScholarAI.html:**\n\`\`\`bash\npython -m http.server 8080\n\`\`\`\n`
+        + `Then open **http://localhost:8080/ScholarAI.html**\n\n`
+        + `No Python? Try: \`npx serve .\` or \`php -S localhost:8080\``;
+    } else {
+      errMsg = `⚠️ **API Error — ${prov.name}**\n\n${err.message}\n\nCheck your key starts with \`${prov.keyPlaceholder||'…'}\` and use the **Test** button on the login screen.`;
+    }
+    showToast(`⚠️ ${isCors ? 'CORS blocked — see message' : err.message}`, 7000);
+    state.messages = [...state.messages, {role:'assistant', content: errMsg}];
+  }
+
+  state.chats = state.chats.map(c => c.id===state.currentChatId ? {...c, messages:state.messages, updatedAt:new Date().toISOString()} : c);
+  saveChats(); state.isLoading=false; sendBtn.disabled=false; refreshMessages(true);
+}
+
+// ── Notepad ───────────────────────────────────────────────────────
+notepadToggle.addEventListener('click',()=>{ state.showNotepad=!state.showNotepad; notepadPanel.style.display=state.showNotepad?'flex':'none'; });
+closeNotepad.addEventListener('click',()=>{ state.showNotepad=false; notepadPanel.style.display='none'; });
+exportNotesBtn.addEventListener('click',()=>{
+  const blob=new Blob([notepadArea.value],{type:'text/plain'});
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download='scholarai-notes.txt'; a.click(); URL.revokeObjectURL(url);
+});
+
+// ── Events ────────────────────────────────────────────────────────
+newChatBtn.addEventListener('click', createNewChat);
+sendBtn.addEventListener('click', sendMessage);
+messageInput.addEventListener('keydown', e=>{ if(e.key==='Enter'&&!e.shiftKey) sendMessage(); });
+uploadBtn.addEventListener('click',()=>{ fileInput.value=''; fileInput.click(); });
+
+// ── File attachment (multi-file, images + text) ───────────────────
+const fileAttachArea = $('fileAttachArea');
+const MAX_IMAGES = 7;
+const MAX_TEXT_SIZE = 50 * 1024; // 50 KB — keep prompts lean to avoid "too large" errors
+const TEXT_EXTS = /\.(txt|md|js|ts|jsx|tsx|py|java|c|cpp|cs|html|css|json|xml|csv|sh|yaml|yml|rb|php|sql|rs|go|swift|kt|lua)$/i;
+
+function fmtSize(b){ return b<1024?b+'B':b<1048576?(b/1024).toFixed(1)+'KB':(b/1048576).toFixed(1)+'MB'; }
+
+function renderAttachArea(){
+  if(!state.pendingFiles.length){ fileAttachArea.classList.remove('visible'); fileAttachArea.innerHTML=''; return; }
+  fileAttachArea.classList.add('visible');
+  fileAttachArea.innerHTML = state.pendingFiles.map(f => {
+    if(f.type === 'image'){
+      return `<div class="img-chip">
+        <img src="${f.dataUrl}" alt="${esc(f.name)}">
+        <button class="img-chip-remove" onclick="removePendingFile('${f.id}')" title="Remove">×</button>
+      </div>`;
+    }
+    return `<div class="file-chip">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      <span class="file-chip-name">${esc(f.name)}</span>
+      <span class="file-chip-size">${fmtSize(f.size)}</span>
+      <button class="file-chip-remove" onclick="removePendingFile('${f.id}')" title="Remove">×</button>
+    </div>`;
+  }).join('');
+}
+
+function removePendingFile(id){
+  state.pendingFiles = state.pendingFiles.filter(f => f.id !== id);
+  renderAttachArea();
+}
+
+function clearPendingFiles(){
+  state.pendingFiles = [];
+  fileInput.value = '';
+  renderAttachArea();
+}
+
+fileInput.addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []);
+  if(!files.length) return;
+
+  const images = files.filter(f => f.type.startsWith('image/'));
+  const texts  = files.filter(f => !f.type.startsWith('image/'));
+
+  // Count existing images
+  const existingImgs = state.pendingFiles.filter(f => f.type === 'image').length;
+  const slotsLeft = MAX_IMAGES - existingImgs;
+  const toAdd = images.slice(0, slotsLeft);
+  if(images.length > slotsLeft) showToast(`⚠️ Max ${MAX_IMAGES} images — ${images.length - slotsLeft} skipped.`, 4000);
+
+  // Read images as base64 data URLs
+  for(const img of toAdd){
+    const dataUrl = await new Promise((res, rej) => {
+      const r = new FileReader(); r.onload = ()=>res(r.result); r.onerror = rej;
+      r.readAsDataURL(img);
+    });
+    state.pendingFiles.push({ id: Math.random().toString(36).slice(2), name: img.name, size: img.size, type: 'image', dataUrl });
+  }
+
+  // Read text/code files (max 1 text file at a time, 50KB limit to avoid token limits)
+  for(const file of texts.slice(0, 1)){
+    if(!TEXT_EXTS.test(file.name)){
+      showToast(`⚠️ "${file.name}" — binary files can't be read by AI. Attach images or code/text files.`, 5000);
+      continue;
+    }
+    try {
+      let content = await file.text();
+      const trimmed = content.length > MAX_TEXT_SIZE;
+      if(trimmed) content = content.slice(0, MAX_TEXT_SIZE) + `\n\n[...truncated — file too large, first ${fmtSize(MAX_TEXT_SIZE)} shown]`;
+      if(trimmed) showToast(`⚠️ "${file.name}" is large — first ${fmtSize(MAX_TEXT_SIZE)} will be sent to avoid token limits.`, 5000);
+      // Try to also save to backend
+      try { const fd=new FormData(); fd.append('file',file); await fetch('/upload',{method:'POST',body:fd}); } catch(_){}
+      state.pendingFiles.push({ id: Math.random().toString(36).slice(2), name: file.name, size: file.size, type: 'text', content });
+    } catch(err){ showToast(`❌ Could not read "${file.name}": ${err.message}`); }
+  }
+
+  renderAttachArea();
+  fileInput.value = '';
+  const imgCount = state.pendingFiles.filter(f=>f.type==='image').length;
+  if(imgCount) showToast(`📸 ${imgCount} image${imgCount>1?'s':''} ready — use a vision model (👁) to analyze them.`, 4000);
+});
+
+$('modelDropdownBtn').addEventListener('click',e=>{ e.stopPropagation(); modelMenu.classList.toggle('visible'); modeMenu.classList.remove('visible'); });
+$('modeDropdownBtn').addEventListener('click',e=>{ e.stopPropagation(); modeMenu.classList.toggle('visible'); modelMenu.classList.remove('visible'); });
+
+modelMenu.addEventListener('click',e=>{ const b=e.target.closest('[data-model]'); if(!b) return; state.selectedModel=b.dataset.model; userEmail.textContent=state.selectedModel; populateModelDropdown(); closeDropdowns(); });
+modeMenu.addEventListener('click',e=>{ const b=e.target.closest('[data-mode]'); if(!b) return; state.selectedMode=b.dataset.mode; populateModeDropdown(); closeDropdowns(); });
+chatList.addEventListener('click',e=>{ const d=e.target.closest('[data-del]'); if(d){deleteChat(d.dataset.del);return;} const i=e.target.closest('[data-id]'); if(i) selectChat(i.dataset.id); });
+document.addEventListener('click', closeDropdowns);
+
+// ── Artifact panel ────────────────────────────────────────────────
+let _artifactRaw = '', _artifactLang = '', _artifactView = 'preview';
+
+function buildSrcdocFromRaw(raw, lang){
+  if(lang==='html'||lang==='jsx') return raw;
+  if(lang==='css') return `<!DOCTYPE html><html><head><style>${raw}</style></head><body style="background:#fff"><p style="color:#888;font-family:sans-serif;padding:20px">CSS loaded — add HTML elements to see styling.</p></body></html>`;
+  if(lang==='js'||lang==='javascript') return `<!DOCTYPE html><html><head></head><body><script>${raw}<\/script></body></html>`;
+  if(lang==='svg') return `<!DOCTYPE html><html><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f8f8f8">${raw}</body></html>`;
+  return `<!DOCTYPE html><html><body><pre style="padding:16px;font-family:monospace">${raw.replace(/</g,'&lt;')}</pre></body></html>`;
+}
+
+function openArtifact(codeId, lang){
+  const el = document.getElementById(codeId);
+  if(!el) return;
+  _artifactRaw  = decodeURIComponent(el.dataset.raw || '');
+  _artifactLang = (lang || el.dataset.lang || 'html').toLowerCase();
+  _artifactView = 'preview';
+  document.getElementById('artifactTitle').textContent = `artifact · ${lang||_artifactLang}`;
+  ['tabPreview','tabCode','tabSplit'].forEach(id=>$(id).classList.remove('active'));
+  $('tabPreview').classList.add('active');
+  renderArtifactBody();
+  $('artifactOverlay').classList.add('open');
+}
+
+function openArtifactCode(codeId, lang){
+  const el = document.getElementById(codeId);
+  if(!el) return;
+  _artifactRaw  = decodeURIComponent(el.dataset.raw || '');
+  _artifactLang = (lang || el.dataset.lang || 'html').toLowerCase();
+  _artifactView = 'code';
+  document.getElementById('artifactTitle').textContent = `artifact · ${lang||_artifactLang}`;
+  ['tabPreview','tabCode','tabSplit'].forEach(id=>$(id).classList.remove('active'));
+  $('tabCode').classList.add('active');
+  renderArtifactBody();
+  $('artifactOverlay').classList.add('open');
+}
+
+function openArtifactSplit(codeId, lang){
+  const el = document.getElementById(codeId);
+  if(!el) return;
+  _artifactRaw  = decodeURIComponent(el.dataset.raw || '');
+  _artifactLang = (lang || el.dataset.lang || 'html').toLowerCase();
+  _artifactView = 'split';
+  document.getElementById('artifactTitle').textContent = `artifact · ${lang||_artifactLang}`;
+  ['tabPreview','tabCode','tabSplit'].forEach(id=>$(id).classList.remove('active'));
+  $('tabSplit').classList.add('active');
+  renderArtifactBody();
+  $('artifactOverlay').classList.add('open');
+}
+
+function closeArtifact(){
+  $('artifactOverlay').classList.remove('open');
+}
+
+function artifactView(mode){
+  _artifactView = mode;
+  ['tabPreview','tabCode','tabSplit'].forEach(id=>$(id).classList.remove('active'));
+  $('tab'+mode.charAt(0).toUpperCase()+mode.slice(1)).classList.add('active');
+  renderArtifactBody();
+}
+
+function renderArtifactBody(){
+  const body   = $('artifactBody');
+  const srcdoc = buildSrcdocFromRaw(_artifactRaw, _artifactLang);
+
+  if(_artifactView==='preview'){
+    body.className='artifact-body';
+    body.innerHTML='';
+    const f=document.createElement('iframe');
+    f.id='artifactFrame'; f.className='artifact-frame';
+    f.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-modals');
+    f.srcdoc=srcdoc;
+    body.appendChild(f);
+  } else if(_artifactView==='code'){
+    body.className='artifact-body';
+    body.innerHTML=`<div class="artifact-code-pane"><pre>${SH.highlight(_artifactLang,esc(_artifactRaw))}</pre></div>`;
+  } else {
+    body.className='artifact-body split';
+    const enc = srcdoc.replace(/"/g,'&quot;').replace(/\n/g,'&#10;');
+    body.innerHTML=`
+      <div class="artifact-code-pane"><pre>${SH.highlight(_artifactLang,esc(_artifactRaw))}</pre></div>
+      <div class="artifact-divider"></div>
+      <iframe class="artifact-frame" id="artifactFrame"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
+        srcdoc="${enc}"></iframe>`;
+  }
+}
+
+$('artifactOverlay').addEventListener('click', e=>{ if(e.target===$('artifactOverlay')) closeArtifact(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeArtifact(); $('backendModal')?.classList.remove('open'); }});
+
+// ── Backend Guide Modal ───────────────────────────────────────────
+const backendModal = $('backendModal');
+$('backendGuideBtn').addEventListener('click', ()=> backendModal.classList.add('open'));
+$('closeModal').addEventListener('click', ()=> backendModal.classList.remove('open'));
+backendModal.addEventListener('click', e=>{ if(e.target===backendModal) backendModal.classList.remove('open'); });
+
+window.app={ setInput(t){ messageInput.value=t; messageInput.focus(); } };
+</script>
+</body>
+</html>
